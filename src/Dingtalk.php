@@ -76,10 +76,11 @@ class Dingtalk
      * @param  Throwable  $exception
      * @return array|string
      */
-    public function pushMarkdown(Throwable $exception)
+    public function pushMarkdown($exception)
     {
         $title = $exception->getMessage();
-        $text = self::formatMessage($exception, '-');
+        $text = $exception->getMessage();// self::formatMessage($exception, '-');
+
         $data = [
             'at' => [],
             'markdown' => [
@@ -107,13 +108,13 @@ class Dingtalk
         $msg = [];
         $msg[] = sprintf('%s [Main] : Error: %s ：time:%s', $delimiter, $exception->getMessage(), date('Y-m-d H:i:s'));
 
-        while ($num <= $traceNum) {
+        while ($num <= $traceNum && isset($trace[$num])) {
             $msg[] = sprintf(
                 "%s [Stacktrace]: File:%s, Line:%s, Function:%s ",
                 $delimiter,
-                $trace[$num]['file'],
-                $trace[$num]['line'],
-                $trace[$num]['function']
+                $trace[$num]['file'] ?? '',
+                $trace[$num]['line'] ?? '',
+                $trace[$num]['function'] ?? ''
             );
             $num++;
         }
@@ -143,30 +144,12 @@ class Dingtalk
             CURLOPT_CONNECTTIMEOUT => 20,
             CURLOPT_TIMEOUT => 120,
 
-            CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-
             CURLOPT_URL => $url,
             CURLOPT_CUSTOMREQUEST => $method,
         ];
-        if (! $this->options['ssl_verify'] || (bool)$this->options['disable_ssl']) {
-            $options[CURLOPT_SSL_VERIFYPEER] = false;
-            $options[CURLOPT_SSL_VERIFYHOST] = 0;
-        }
 
-        if (in_array('Content-Type: multipart/form-data', $options[CURLOPT_HTTPHEADER])) {
-            $options[CURLOPT_POSTFIELDS] = array_merge($body, $uploads);
-            if (class_exists('\CURLFile')) {
-                $options[CURLOPT_SAFE_UPLOAD] = true;
-            } else {
-                if (defined('CURLOPT_SAFE_UPLOAD')) {
-                    $options[CURLOPT_SAFE_UPLOAD] = false;
-                }
-            }
-        } else {
-            $options[CURLOPT_HTTPHEADER][] = 'Content-Type: application/json';
-            if (! empty($body)) {
-                $options[CURLOPT_POSTFIELDS] = json_encode($body);
-            }
+        if (strtolower($method) == 'post' && ! empty($body)) {
+            $options[CURLOPT_POSTFIELDS] = http_build_query($body);
         }
 
         curl_setopt_array($ch, $options);
