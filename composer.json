@@ -1,7 +1,6 @@
 {
   "name": "jimmyyem/helpers",
   "description": "Common helpers and library",
-  "keywords": ["helpers", "php"],
   "license": "MIT",
   "authors": [
     {
@@ -13,9 +12,9 @@
     "php": "^8.0"
   },
   "autoload": {
-    "psr-4": [
+    "psr-4": {
       "Helpers\\": "src/"
-    ]
+    }
   },
   "config": {
     "preferred-install": "dist",
