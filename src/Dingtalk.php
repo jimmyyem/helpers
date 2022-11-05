@@ -9,6 +9,7 @@
 namespace Helpers;
 
 use Throwable;
+use GuzzleHttp\Client;
 
 /**
  * 钉钉推送报警消息
@@ -23,18 +24,25 @@ class Dingtalk
     private $url;
 
     /**
+     * @var Client
+     */
+    private $client;
+
+    /**
      * @param $token
      */
     public function __construct($token)
     {
         $this->url = 'https://oapi.dingtalk.com/robot/send?access_token='.$token;
+        $this->client = new Client();
     }
 
     /**
      * 给钉钉发报警消息，类型：text
      *
-     * @param  Throwable  $exception
-     * @return mixed
+     * @param  \Throwable  $exception
+     * @return \Psr\Http\Message\ResponseInterface
+     * @throws \GuzzleHttp\Exception\GuzzleException
      */
     public function pushText(Throwable $exception)
     {
@@ -48,14 +56,15 @@ class Dingtalk
             'msgtype' => 'text',
         ];
 
-        return $this->request('post', $this->url, $data);
+        return $this->client->post($this->url, $data);
     }
 
     /**
      * 给钉钉发报警消息，类型：string
      *
      * @param  string  $errMsg
-     * @return array|string
+     * @return \Psr\Http\Message\ResponseInterface
+     * @throws \GuzzleHttp\Exception\GuzzleException
      */
     public function pushPlain(string $errMsg)
     {
@@ -67,14 +76,15 @@ class Dingtalk
             'msgtype' => 'text',
         ];
 
-        return $this->request('post', $this->url, $data);
+        return $this->client->post($this->url, $data);
     }
 
     /**
      * 给钉钉发报警消息，类型：markdown
      *
-     * @param  Throwable  $exception
-     * @return array|string
+     * @param $exception
+     * @return \Psr\Http\Message\ResponseInterface
+     * @throws \GuzzleHttp\Exception\GuzzleException
      */
     public function pushMarkdown($exception)
     {
@@ -90,7 +100,7 @@ class Dingtalk
             'msgtype' => 'markdown',
         ];
 
-        return $this->request('post', $this->url, $data);
+        return $this->client->post($this->url, $data);
     }
 
     /**
@@ -120,69 +130,5 @@ class Dingtalk
         }
 
         return implode("\r\n", $msg);
-    }
-
-    /**
-     * 发送请求
-     *
-     * @param  string  $method
-     * @param  string  $url
-     * @param  array  $body
-     * @param  array  $headers
-     * @param  array  $uploads
-     * @return array|string
-     */
-    public function request($method, $url, $body = [], $headers = [], $uploads = [])
-    {
-        $ch = curl_init();
-        $options = [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HEADER => true,
-            CURLOPT_HTTPHEADER => array_merge([
-                'Connection: Keep-Alive',
-            ], $headers),
-            CURLOPT_CONNECTTIMEOUT => 20,
-            CURLOPT_TIMEOUT => 120,
-
-            CURLOPT_URL => $url,
-            CURLOPT_CUSTOMREQUEST => $method,
-        ];
-
-        if (strtolower($method) == 'post' && ! empty($body)) {
-            $options[CURLOPT_POSTFIELDS] = http_build_query($body);
-        }
-
-        curl_setopt_array($ch, $options);
-        $output = curl_exec($ch);
-
-        if ($output === false) {
-            return "Error Code:".curl_errno($ch).", Error Message:".curl_error($ch);
-        } else {
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-            $header_text = substr($output, 0, $header_size);
-            $body = substr($output, $header_size);
-            $headers = [];
-
-            foreach (explode("\r\n", $header_text) as $i => $line) {
-                if (! empty($line)) {
-                    if ($i === 0) {
-                        $headers[0] = $line;
-                    } else {
-                        if (strpos($line, ": ")) {
-                            [$key, $value] = explode(': ', $line);
-                            $headers[$key] = $value;
-                        }
-                    }
-                }
-            }
-
-            $response['headers'] = $headers;
-            $response['body'] = json_decode($body, true);
-            $response['http_code'] = $httpCode;
-        }
-        curl_close($ch);
-
-        return $response;
     }
 }
