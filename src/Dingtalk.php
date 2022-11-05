@@ -9,7 +9,6 @@
 namespace Helpers;
 
 use Throwable;
-use GuzzleHttp\Client;
 
 /**
  * 钉钉推送报警消息
@@ -24,25 +23,18 @@ class Dingtalk
     private $url;
 
     /**
-     * @var Client
-     */
-    private $client;
-
-    /**
      * @param $token
      */
     public function __construct($token)
     {
         $this->url = 'https://oapi.dingtalk.com/robot/send?access_token='.$token;
-        $this->client = new Client();
     }
 
     /**
      * 给钉钉发报警消息，类型：text
      *
      * @param  \Throwable  $exception
-     * @return \Psr\Http\Message\ResponseInterface
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @return bool|string
      */
     public function pushText(Throwable $exception)
     {
@@ -56,15 +48,14 @@ class Dingtalk
             'msgtype' => 'text',
         ];
 
-        return $this->client->post($this->url, $data);
+        return $this->request($this->url, $data);
     }
 
     /**
      * 给钉钉发报警消息，类型：string
      *
      * @param  string  $errMsg
-     * @return \Psr\Http\Message\ResponseInterface
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @return bool|string
      */
     public function pushPlain(string $errMsg)
     {
@@ -76,20 +67,19 @@ class Dingtalk
             'msgtype' => 'text',
         ];
 
-        return $this->client->post($this->url, $data);
+        return $this->request($this->url, $data);
     }
 
     /**
      * 给钉钉发报警消息，类型：markdown
      *
      * @param $exception
-     * @return \Psr\Http\Message\ResponseInterface
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @return bool|string
      */
     public function pushMarkdown($exception)
     {
         $title = $exception->getMessage();
-        $text = $exception->getMessage();// self::formatMessage($exception, '-');
+        $text = self::formatMessage($exception, '-');
 
         $data = [
             'at' => [],
@@ -100,7 +90,7 @@ class Dingtalk
             'msgtype' => 'markdown',
         ];
 
-        return $this->client->post($this->url, $data);
+        return $this->request($this->url, $data);
     }
 
     /**
@@ -130,5 +120,31 @@ class Dingtalk
         }
 
         return implode("\r\n", $msg);
+    }
+
+    /**
+     * 发送curl请求
+     *
+     * @param  string  $url
+     * @param  array  $postData
+     * @param  array  $options
+     * @return bool|string
+     */
+    function request(string $url, array $postData, array $options = [])
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $options['timeout'] ?? 5);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json;charset=utf-8']);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        // 不用开启curl证书验证
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        $data = curl_exec($ch);
+        curl_close($ch);
+
+        return $data;
     }
 }
